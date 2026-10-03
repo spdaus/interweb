@@ -1,0 +1,16 @@
+{
+ "NEAR": {
+  "last_price": 4.671,
+  "last_checked_ms": 1791018483693,
+  "marks_ms": {}
+ },
+ "ZEC": {
+  "last_price": 1317.53,
+  "last_checked_ms": 1791018483693
+ },
+ "BTC": {
+  "last_price": 84642.0,
+  "last_checked_ms": 1791018483693
+ },
+ "fail_count": 0
+}

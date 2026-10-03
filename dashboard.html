@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alarm Watch - NEAR, ZEC, BTC</title>
+<script>try { var m = localStorage.getItem("alarm-watch-theme"); if (m === "light" || m === "dark") document.documentElement.dataset.theme = m; } catch (e) {}</script>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #6f6d67;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10); --wash: rgba(11,11,11,0.05);
+  --s1: #2a78d6; --track: #cde2fb;
+  --good: #0ca30c; --warn: #fab219; --crit: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #a09e96;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --wash: rgba(255,255,255,0.06);
+    --s1: #3987e5; --track: #0d366b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19;
+  --ink: #ffffff; --ink-2: #c3c2b7; --muted: #a09e96;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --wash: rgba(255,255,255,0.06);
+  --s1: #3987e5; --track: #0d366b;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 56px; }
+
+header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 8px; }
+h1 { margin: 0; font-size: 20px; font-weight: 600; }
+.sub { margin: 4px 0 0; color: var(--ink-2); max-width: 70ch; }
+.controls { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 13px; }
+button { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+button:hover { background: var(--wash); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 6px 10px; background: var(--surface); }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: var(--wash); font-weight: 600; }
+.delta + .delta { margin-top: 2px; }
+button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; border-radius: 4px; }
+
+.banner { margin: 12px 0 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink-2); font-size: 13px; }
+.banner[hidden] { display: none; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr)); gap: 16px; margin-top: 16px; }
+.grid.loading { opacity: .6; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; max-width: 520px; }
+
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.coin { font-size: 15px; font-weight: 600; }
+.pair { color: var(--muted); font-size: 12px; margin-left: 6px; font-weight: 400; }
+.value { font-size: 28px; font-weight: 600; margin-top: 2px; }
+.delta { color: var(--ink-2); font-size: 13px; }
+.delta b { color: var(--ink); font-weight: 600; }
+
+.chip { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.chip svg { flex: none; margin-top: 1px; }
+.chip .t { font-weight: 600; }
+.chip ul { margin: 2px 0 0; padding-left: 16px; color: var(--ink-2); font-size: 13px; }
+
+.spark { display: block; width: 100%; height: auto; margin-top: 12px; touch-action: none; }
+.spark text { fill: var(--muted); font-size: 10px; }
+
+h3 { margin: 18px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.cap { margin: -4px 0 8px; font-size: 12px; color: var(--muted); }
+
+.meter { padding: 6px 0; border-radius: 6px; }
+.m-head { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.m-head .l { color: var(--ink-2); }
+.m-head .r { text-align: right; }
+.m-head .r b { font-weight: 600; }
+.m-head .r span { color: var(--ink-2); }
+.track { position: relative; height: 8px; margin: 6px 0 4px; background: var(--track); border-radius: 4px; }
+.fill { position: absolute; top: 0; height: 8px; }
+.fill.pos { border-radius: 0 4px 4px 0; }
+.fill.neg { border-radius: 4px 0 0 4px; }
+.fill.one { border-radius: 4px 4px 4px 4px; left: 0; }
+.tick { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--ink); margin-left: -1px; border-radius: 1px; }
+.tick.zero { width: 1px; background: var(--ink-2); margin-left: 0; }
+.scale { position: relative; height: 14px; font-size: 11px; color: var(--muted); }
+.scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+
+.ladder { list-style: none; margin: 0; padding: 0; }
+.lv { display: grid; grid-template-columns: 1fr 78px 84px; gap: 8px; align-items: center; padding: 6px 4px; border-top: 1px solid var(--grid); }
+.lv:first-child { border-top: 0; }
+.lv .n { min-width: 0; }
+.lv .n small { display: block; color: var(--muted); font-size: 11px; line-height: 1.25; }
+.lv .p { text-align: right; font-variant-numeric: tabular-nums; }
+.lv .p small { display: block; color: var(--ink-2); font-size: 11px; }
+.lv .b { position: relative; height: 8px; }
+.lv .b::before { content: ""; position: absolute; left: 50%; top: -3px; width: 1px; height: 14px; background: var(--axis); }
+.lv .b i { position: absolute; top: 0; height: 8px; background: var(--s1); }
+.lv .b i.up { left: 50%; border-radius: 0 4px 4px 0; }
+.lv .b i.dn { right: 50%; border-radius: 4px 0 0 4px; }
+.lv.now { background: var(--wash); border-radius: 6px; font-weight: 600; border-top-color: transparent; }
+.lv.now + .lv { border-top-color: transparent; }
+.lv.now .n small { font-weight: 400; }
+
+details { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+summary { cursor: pointer; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 4px; font-size: 13px; }
+th, td { text-align: right; padding: 6px 8px; border-top: 1px solid var(--grid); }
+th.txt, td.txt { text-align: left; }
+th { color: var(--ink-2); font-weight: 600; border-top: 0; }
+td { font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+
+.how { margin-top: 20px; color: var(--ink-2); font-size: 13px; }
+.how ul { margin: 6px 0 0; padding-left: 18px; }
+.how li { margin: 3px 0; }
+
+#tip { position: fixed; z-index: 10; pointer-events: none; padding: 8px 10px; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 12px; max-width: 260px; }
+#tip[hidden] { display: none; }
+#tip b { display: block; font-size: 14px; font-weight: 600; }
+#tip span { display: block; color: var(--ink-2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Alarm Watch: NEAR, ZEC, BTC</h1>
+      <p class="sub" id="sub"></p>
+    </div>
+    <div class="controls">
+      <span id="updated">Loading…</span>
+      <div class="seg" id="theme" role="group" aria-label="Colour theme">
+        <button type="button" data-m="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-m="light" aria-pressed="false">Light</button>
+        <button type="button" data-m="dark" aria-pressed="false">Dark</button>
+      </div>
+      <button id="refresh" type="button">Refresh</button>
+    </div>
+  </header>
+  <div class="banner" id="err" hidden></div>
+  <noscript><div class="banner">This page needs JavaScript to load live prices.</div></noscript>
+
+  <main class="grid loading" id="grid" aria-live="polite"></main>
+
+  <details id="tables">
+    <summary>Table view</summary>
+    <div class="scroll"><table id="t-read"></table></div>
+    <div class="scroll"><table id="t-levels"></table></div>
+  </details>
+
+  <section class="how" id="how"></section>
+</div>
+<div id="tip" role="tooltip" hidden></div>
+
+<script>
+// <CONFIG>
+const CONFIG = {
+  "profile": "balanced",
+  "thresholds": {
+    "move1h": 4.0,
+    "move4h": 8.0,
+    "vol_mult": 3.0,
+    "range_atr": 2.0
+  },
+  "assets": [
+    {
+      "name": "NEAR",
+      "symbol": "NEARUSDT",
+      "entries": [
+        {
+          "price": 5.0,
+          "alerts": true
+        }
+      ]
+    },
+    {
+      "name": "ZEC",
+      "symbol": "ZECUSDT",
+      "entries": [
+        {
+          "price": 1100.0,
+          "alerts": false
+        }
+      ]
+    },
+    {
+      "name": "BTC",
+      "symbol": "BTCUSDT",
+      "entries": [
+        {
+          "price": 57000.0,
+          "alerts": false
+        },
+        {
+          "price": 86000.0,
+          "alerts": false
+        }
+      ]
+    }
+  ],
+  "entryMarks": [
+    [
+      -15,
+      "-15% from entry",
+      "down"
+    ],
+    [
+      -10,
+      "-10% from entry",
+      "down"
+    ],
+    [
+      0,
+      "back at entry",
+      "up"
+    ],
+    [
+      10,
+      "+10% from entry",
+      "up"
+    ]
+  ],
+  "cooldownH": 2.0,
+  "markCooldownH": 12.0,
+  "runBars": 240
+};
+// </CONFIG>
+
+const HOSTS = ["https://api.binance.com", "https://data-api.binance.vision"];
+const T = CONFIG.thresholds;
+const RUN = CONFIG.runBars;
+const REFRESH_MS = 60000;
+const MINUS = "−";
+const SPARK_BARS = 72;
+
+const sgn = (v, d = 1) => (v >= 0 ? "+" : MINUS) + Math.abs(v).toFixed(d);
+const pct = (v, d = 1) => sgn(v, d) + "%";
+const fmtP = p => p >= 100 ? p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : p.toFixed(3);
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+const when = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") el.className = v;
+    else if (k === "style") el.style.cssText = v;
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null) el.append(kid.nodeType ? kid : document.createTextNode(kid));
+  return el;
+}
+const svgEl = (tag, attrs) => {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+  return el;
+};
+
+// ---------- indicators (mirror market_monitor.py) ----------
+function ema(vals, n) {
+  const k = 2 / (n + 1), out = [];
+  let e = null;
+  vals.forEach((v, i) => {
+    if (i < n - 1) { out.push(null); return; }
+    e = i === n - 1 ? mean(vals.slice(0, n)) : v * k + e * (1 - k);
+    out.push(e);
+  });
+  return out;
+}
+function atr(bars, n = 14) {
+  const trs = bars.map((b, i) => i === 0 ? b.h - b.l
+    : Math.max(b.h - b.l, Math.abs(b.h - bars[i - 1].c), Math.abs(b.l - bars[i - 1].c)));
+  let a = mean(trs.slice(0, n));
+  for (const t of trs.slice(n)) a = (a * (n - 1) + t) / n;
+  return a;
+}
+
+async function fetchKlines(symbol, limit = 500) {
+  let err;
+  for (const host of HOSTS) {
+    try {
+      const r = await fetch(`${host}/api/v3/klines?symbol=${symbol}&interval=1h&limit=${limit}`);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const rows = await r.json();
+      return rows.map(x => ({ t: +x[0], o: +x[1], h: +x[2], l: +x[3], c: +x[4], v: +x[5] }));
+    } catch (e) { err = e; }
+  }
+  throw err;
+}
+
+function analyse(asset, bars) {
+  const closed = bars.slice(0, -1), cur = bars[bars.length - 1];
+  const price = cur.c, closes = bars.map(b => b.c);
+  const r1 = (price / closes[closes.length - 2] - 1) * 100;
+  const r4 = (price / closes[closes.length - 5] - 1) * 100;
+  const lb = closed[closed.length - 1];
+  const lastc = lb.c, prevc = closed[closed.length - 2].c;
+  const a14 = atr(closed);
+  const avgv = mean(closed.slice(-21, -1).map(b => b.v));
+  const volX = avgv > 0 ? lb.v / avgv : 0;
+  const rangeX = (lb.h - lb.l) / a14;
+
+  const e200 = ema(closed.map(b => b.c), 200);
+  const e = e200[e200.length - 1], ep = e200[e200.length - 2];
+  const prior = closed.slice(-RUN - 1, -1), priorPrev = closed.slice(-RUN - 2, -2);
+  const hi10 = Math.max(...prior.map(b => b.h)), lo10 = Math.min(...prior.map(b => b.l));
+  const hi10p = Math.max(...priorPrev.map(b => b.h)), lo10p = Math.min(...priorPrev.map(b => b.l));
+
+  const win = bars.slice(-RUN);
+  let hi = -Infinity, lo = Infinity, iHi = 0, iLo = 0;
+  win.forEach((b, i) => { if (b.h > hi) { hi = b.h; iHi = i; } if (b.l < lo) { lo = b.l; iLo = i; } });
+  const fibOk = lo > 0 && iLo < iHi && (hi - lo) / lo >= 0.15;
+  const fib = hi - 0.618 * (hi - lo);
+
+  // conditions that hold on the last closed candle (the monitor adds cooldowns on top)
+  const trig = [];
+  if (Math.abs(r1) >= T.move1h) trig.push(`1h move ${pct(r1)}`);
+  if (Math.abs(r4) >= T.move4h) trig.push(`4h move ${pct(r4)}`);
+  if (volX >= T.vol_mult && rangeX >= T.range_atr) trig.push(`Volume ${volX.toFixed(1)}x average on a wide ${lb.c >= lb.o ? "up" : "down"} candle`);
+  if (e != null && ep != null) {
+    if (prevc >= ep && lastc < e - a14) trig.push("Closed decisively below the 1h EMA200");
+    else if (prevc <= ep && lastc > e + a14) trig.push("Closed decisively above the 1h EMA200");
+  }
+  if (lastc > hi10 && prevc <= hi10p) trig.push("First close above the 10-day high");
+  else if (lastc < lo10 && prevc >= lo10p) trig.push("First close below the 10-day low");
+  if (fibOk) {
+    if (prevc >= fib && lastc < fib - 0.5 * a14) trig.push("Closed below the 61.8% retrace of the 10-day run");
+    else if (prevc <= fib && lastc > fib + 0.5 * a14) trig.push("Closed back above the 61.8% retrace");
+  }
+
+  // price levels that would trigger a level-based alarm
+  const levels = [
+    { name: "10-day high", note: "alarm on first close above", price: hi10 },
+    { name: "10-day low", note: "alarm on first close below", price: lo10 },
+  ];
+  if (e != null) {
+    levels.push(lastc >= e
+      ? { name: "1h EMA200 break", note: "alarm on a close below (1 ATR under EMA)", price: e - a14 }
+      : { name: "1h EMA200 break", note: "alarm on a close above (1 ATR over EMA)", price: e + a14 });
+  }
+  if (fibOk) {
+    levels.push(lastc >= fib
+      ? { name: "61.8% retrace break", note: "alarm on a close below (0.5 ATR under)", price: fib - 0.5 * a14 }
+      : { name: "61.8% retrace recovery", note: "alarm on a close above (0.5 ATR over)", price: fib + 0.5 * a14 });
+  }
+  for (const en of asset.entries) {
+    if (en.alerts) {
+      for (const [p, label, dir] of CONFIG.entryMarks) {
+        levels.push({ name: label, note: `alarm when price touches it going ${dir}`, price: en.price * (1 + p / 100) });
+      }
+    } else {
+      levels.push({ name: "Your entry", note: "reference line only, no alert set", price: en.price, ref: true });
+    }
+  }
+  levels.forEach(l => { l.dist = (l.price / price - 1) * 100; });
+  levels.sort((a, b) => b.price - a.price);
+
+  return {
+    asset, price, r1, r4, volX, rangeX, trig, levels, a14,
+    spark: bars.slice(-SPARK_BARS).map(b => ({ t: b.t, c: b.c })),
+    pl: asset.entries.map(en => ({ price: en.price, pl: (price / en.price - 1) * 100 })),
+  };
+}
+
+// ---------- tooltip ----------
+const tip = document.getElementById("tip");
+function showTip(lines, x, y) {
+  tip.replaceChildren(h("b", null, lines[0]), ...lines.slice(1).map(s => h("span", null, s)));
+  tip.hidden = false;
+  const w = tip.offsetWidth, hgt = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(x + 14, innerWidth - w - 8)) + "px";
+  tip.style.top = Math.max(8, Math.min(y + 14, innerHeight - hgt - 8)) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+function attachTip(el, lines) {
+  el.setAttribute("tabindex", "0");
+  el.addEventListener("pointermove", ev => showTip(lines, ev.clientX, ev.clientY));
+  el.addEventListener("pointerleave", hideTip);
+  el.addEventListener("focus", () => { const r = el.getBoundingClientRect(); showTip(lines, r.left + 24, r.top + r.height / 2); });
+  el.addEventListener("blur", hideTip);
+}
+
+// ---------- components ----------
+function icon(kind) {
+  const s = svgEl("svg", { width: 18, height: 18, viewBox: "0 0 18 18", "aria-hidden": "true" });
+  if (kind === "good") {
+    s.append(svgEl("circle", { cx: 9, cy: 9, r: 8, fill: "var(--good)" }),
+      svgEl("path", { d: "M5 9.3l2.7 2.7L13 6.5", fill: "none", stroke: "#fff", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+  } else {
+    s.append(svgEl("path", { d: "M9 1.5l8 14H1z", fill: "var(--crit)", "stroke-linejoin": "round" }),
+      svgEl("path", { d: "M9 6.5v4.2M9 12.6v.1", stroke: "#fff", "stroke-width": 2, "stroke-linecap": "round" }));
+  }
+  return s;
+}
+
+function statusChip(r) {
+  if (!r.trig.length) {
+    return h("div", { class: "chip" }, icon("good"), h("div", null, h("div", { class: "t" }, "All quiet"),
+      h("div", { style: "color:var(--ink-2);font-size:13px" }, "No alarm condition met on the last closed candle")));
+  }
+  return h("div", { class: "chip" }, icon("alarm"), h("div", null, h("div", { class: "t" }, "Alarm condition met"),
+    h("ul", null, r.trig.map(t => h("li", null, t)))));
+}
+
+function sparkline(r) {
+  // Entries close to the price get a line; far-away ones (e.g. BTC at 57,000) get a note
+  // under the chart instead of squashing the price line flat.
+  const pts = r.spark;
+  const near = r.asset.entries.filter(e => Math.abs(e.price / r.price - 1) <= 0.08);
+  const far = r.asset.entries.filter(e => !near.includes(e));
+  const W = 320, H = 76 + 12 * far.length, padL = 4, padR = 8, padT = 8, padB = 8 + 12 * far.length;
+  const vals = pts.map(p => p.c).concat(near.map(e => e.price));
+  const mn = Math.min(...vals), mx = Math.max(...vals), span = (mx - mn) || 1;
+  const x = i => padL + i * (W - padL - padR) / (pts.length - 1);
+  const y = v => padT + (1 - (v - mn) / span) * (H - padT - padB);
+  const path = a => a.map((p, i) => `${i ? "L" : "M"}${x(p.i).toFixed(1)} ${y(p.c).toFixed(1)}`).join("");
+  const all = pts.map((p, i) => ({ ...p, i }));
+  const svg = svgEl("svg", { class: "spark", viewBox: `0 0 ${W} ${H}`, role: "img", tabindex: "0",
+    "aria-label": `${r.asset.name} price, last ${pts.length} hours: from ${fmtP(pts[0].c)} to ${fmtP(r.price)}` });
+  for (const e of near) {
+    svg.append(svgEl("line", { x1: padL, x2: W - padR, y1: y(e.price), y2: y(e.price), stroke: "var(--axis)", "stroke-width": 1 }));
+    const t = svgEl("text", { x: W - padR, y: y(e.price) - 3, "text-anchor": "end" });
+    t.textContent = `Entry ${fmtP(e.price)}`;
+    svg.append(t);
+  }
+  far.forEach((e, i) => {
+    const t = svgEl("text", { x: padL, y: 76 + 12 * (i + 1) - 3 });
+    t.textContent = `${e.price < r.price ? "▼" : "▲"} Entry ${fmtP(e.price)} is off the chart (${pct((e.price / r.price - 1) * 100)} from price)`;
+    svg.append(t);
+  });
+  svg.append(
+    svgEl("path", { d: path(all), fill: "none", stroke: "var(--muted)", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round", opacity: 0.55 }),
+    svgEl("path", { d: path(all.slice(-24)), fill: "none", stroke: "var(--s1)", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }),
+    svgEl("circle", { cx: x(pts.length - 1), cy: y(r.price), r: 6, fill: "var(--surface)" }),
+    svgEl("circle", { cx: x(pts.length - 1), cy: y(r.price), r: 4, fill: "var(--s1)" }));
+  const cross = svgEl("g", { visibility: "hidden" });
+  const cl = svgEl("line", { y1: padT - 4, y2: H - padB + 4, stroke: "var(--ink-2)", "stroke-width": 1 });
+  const cr = svgEl("circle", { r: 4, fill: "var(--s1)", stroke: "var(--surface)", "stroke-width": 2 });
+  cross.append(cl, cr);
+  svg.append(cross);
+
+  const show = (i, cx, cy) => {
+    i = Math.max(0, Math.min(pts.length - 1, i));
+    cl.setAttribute("x1", x(i)); cl.setAttribute("x2", x(i));
+    cr.setAttribute("cx", x(i)); cr.setAttribute("cy", y(pts[i].c));
+    cross.setAttribute("visibility", "visible");
+    showTip([fmtP(pts[i].c), when(pts[i].t)], cx, cy);
+    return i;
+  };
+  let cur = pts.length - 1;
+  svg.addEventListener("pointermove", ev => {
+    const rc = svg.getBoundingClientRect();
+    const vx = (ev.clientX - rc.left) / rc.width * W;
+    cur = show(Math.round((vx - padL) / (W - padL - padR) * (pts.length - 1)), ev.clientX, ev.clientY);
+  });
+  svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  svg.addEventListener("keydown", ev => {
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    ev.preventDefault();
+    const rc = svg.getBoundingClientRect();
+    cur = show(cur + (ev.key === "ArrowLeft" ? -1 : 1), rc.left + rc.width / 2, rc.top);
+  });
+  svg.addEventListener("blur", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  return svg;
+}
+
+// severity: accent -> warning -> danger, always with a word beside it
+function severity(frac) {
+  if (frac >= 1) return { color: "var(--crit)", word: "▲ Alarm" };
+  if (frac >= 0.5) return { color: "var(--warn)", word: "△ Approaching" };
+  return { color: "var(--s1)", word: "" };
+}
+
+function meter(label, value, thr, opts) {
+  const two = opts.two, unit = opts.unit, dp = opts.dp;
+  const frac = Math.abs(value) / thr, sev = severity(frac);
+  const range = 1.5 * thr;
+  const track = h("div", { class: "track" });
+  const tipLines = [label, `Alarm at ${two ? "±" : "≥ "}${thr.toFixed(dp)}${unit}`, `${Math.round(frac * 100)}% of the way to the alarm`];
+  const readTxt = two ? pct(value, dp) : `${value.toFixed(dp)}${unit}`;
+  if (two) {
+    const w = Math.min(Math.abs(value) / range, 1) * 50;
+    const fill = h("div", { class: "fill " + (value >= 0 ? "pos" : "neg"), style: `background:${sev.color};width:${w}%;left:${value >= 0 ? 50 : 50 - w}%` });
+    track.append(fill, h("i", { class: "tick zero", style: "left:50%" }),
+      h("i", { class: "tick", style: `left:${50 - thr / range * 50}%` }), h("i", { class: "tick", style: `left:${50 + thr / range * 50}%` }));
+  } else {
+    const w = Math.min(value / range, 1) * 100;
+    track.append(h("div", { class: "fill one", style: `background:${sev.color};width:${w}%` }),
+      h("i", { class: "tick", style: `left:${thr / range * 100}%` }));
+  }
+  const scale = h("div", { class: "scale" });
+  if (two) {
+    scale.append(h("span", { style: `left:${50 - thr / range * 50}%` }, `${MINUS}${thr}${unit}`),
+      h("span", { style: "left:50%" }, "0"), h("span", { style: `left:${50 + thr / range * 50}%` }, `+${thr}${unit}`));
+  } else {
+    scale.append(h("span", { style: "left:0;transform:none" }, "0"),
+      h("span", { style: `left:${thr / range * 100}%` }, `${thr}${unit}`));
+  }
+  const row = h("div", { class: "meter" },
+    h("div", { class: "m-head" }, h("span", { class: "l" }, label),
+      h("span", { class: "r" }, h("b", null, readTxt), " ", h("span", null, sev.word ? sev.word : `${Math.round(frac * 100)}% of alarm`))),
+    track, scale);
+  attachTip(row, tipLines);
+  return row;
+}
+
+function ladder(r) {
+  const rows = [...r.levels];
+  const maxD = Math.max(1, ...rows.filter(l => !l.ref).map(l => Math.abs(l.dist)));  // far reference entries just clamp
+  const ul = h("ul", { class: "ladder" });
+  let placed = false;
+  const now = () => h("li", { class: "lv now" }, h("div", { class: "n" }, "Price now"),
+    h("div", { class: "p" }, fmtP(r.price)), h("div", { class: "b" }));
+  for (const l of rows) {
+    if (!placed && l.price < r.price) { ul.append(now()); placed = true; }
+    const w = Math.min(Math.abs(l.dist) / maxD, 1) * 50;
+    const li = h("li", { class: "lv" },
+      h("div", { class: "n" }, l.name, h("small", null, l.note)),
+      h("div", { class: "p" }, fmtP(l.price), h("small", null, pct(l.dist))),
+      h("div", { class: "b" }, h("i", { class: l.dist >= 0 ? "up" : "dn", style: `width:${w}%` })));
+    attachTip(li, [l.name, `${fmtP(l.price)} (${pct(l.dist)} from the current price)`, l.note]);
+    ul.append(li);
+  }
+  if (!placed) ul.append(now());
+  return ul;
+}
+
+function card(r) {
+  const a = r.asset;
+  const plRows = r.pl.map(e => h("div", { class: "delta" }, "vs your ", fmtP(e.price), " entry ", h("b", null, pct(e.pl))));
+  return h("article", { class: "card", "aria-label": a.name },
+    h("div", { class: "top" }, h("div", { class: "coin" }, a.name, h("span", { class: "pair" }, a.symbol))),
+    h("div", { class: "value" }, fmtP(r.price)),
+    h("div", { class: "delta" }, "1h ", h("b", null, pct(r.r1)), "  4h ", h("b", null, pct(r.r4))),
+    ...plRows,
+    statusChip(r),
+    sparkline(r),
+    h("h3", null, "Alarm distance"),
+    meter("1h move", r.r1, T.move1h, { two: true, unit: "%", dp: 1 }),
+    meter("4h move", r.r4, T.move4h, { two: true, unit: "%", dp: 1 }),
+    meter("Volume vs average (last closed 1h)", r.volX, T.vol_mult, { two: false, unit: "×", dp: 1 }),
+    meter("Candle range vs ATR (needs volume too)", r.rangeX, T.range_atr, { two: false, unit: "×", dp: 1 }),
+    h("h3", null, "Price levels that trigger an alarm"),
+    h("p", { class: "cap" }, "Bars show distance from the current price: right is above, left is below."),
+    ladder(r));
+}
+
+function tables(results) {
+  const read = document.getElementById("t-read"), lv = document.getElementById("t-levels");
+  const head = (cells, txt) => h("tr", null, cells.map((c, i) => h("th", { class: txt.includes(i) ? "txt" : "" }, c)));
+  read.replaceChildren(h("caption", { style: "text-align:left;font-weight:600;padding:4px 0" }, "Current readings"),
+    head(["Asset", "Price", "1h move", "Alarm at", "4h move", "Alarm at", "Volume × avg", "Alarm at", "Range × ATR", "Alarm at", "Status"], [0, 10]),
+    ...results.map(r => h("tr", null,
+      h("td", { class: "txt" }, r.asset.name), h("td", null, fmtP(r.price)),
+      h("td", null, pct(r.r1)), h("td", null, `±${T.move1h}%`),
+      h("td", null, pct(r.r4)), h("td", null, `±${T.move4h}%`),
+      h("td", null, r.volX.toFixed(1) + "×"), h("td", null, `≥${T.vol_mult}×`),
+      h("td", null, r.rangeX.toFixed(1) + "×"), h("td", null, `≥${T.range_atr}×`),
+      h("td", { class: "txt" }, r.trig.length ? "Alarm: " + r.trig.join("; ") : "All quiet"))));
+  lv.replaceChildren(h("caption", { style: "text-align:left;font-weight:600;padding:12px 0 4px" }, "Alarm price levels"),
+    head(["Asset", "Level", "Price", "From price"], [0, 1]),
+    ...results.flatMap(r => r.levels.map(l => h("tr", null,
+      h("td", { class: "txt" }, r.asset.name), h("td", { class: "txt" }, `${l.name} (${l.note})`),
+      h("td", null, fmtP(l.price)), h("td", null, pct(l.dist))))));
+}
+
+// ---------- page ----------
+const grid = document.getElementById("grid"), errBox = document.getElementById("err");
+const last = {};  // keep the previous render per asset if a refetch fails
+
+function renderAll() {
+  const results = CONFIG.assets.map(a => last[a.name]).filter(Boolean);
+  grid.replaceChildren(...results.map(card));
+  tables(results);
+}
+
+async function refresh() {
+  grid.classList.add("loading");
+  const settled = await Promise.allSettled(CONFIG.assets.map(a => fetchKlines(a.symbol).then(b => analyse(a, b))));
+  const failed = [];
+  settled.forEach((s, i) => {
+    if (s.status === "fulfilled") last[CONFIG.assets[i].name] = s.value;
+    else failed.push(CONFIG.assets[i].name);
+  });
+  renderAll();
+  grid.classList.remove("loading");
+  if (failed.length) {
+    errBox.hidden = false;
+    errBox.textContent = `Could not load ${failed.join(", ")} from Binance. ${Object.keys(last).length ? "Showing the last good data." : "Check your connection and press Refresh."}`;
+  } else errBox.hidden = true;
+  if (Object.keys(last).length) {
+    document.getElementById("updated").textContent = `Updated ${new Date().toLocaleTimeString()}, auto-refresh every ${REFRESH_MS / 1000}s`;
+  } else document.getElementById("updated").textContent = "No data yet";
+}
+
+function intro() {
+  document.getElementById("sub").textContent =
+    `Live readings against the alarm thresholds of the hourly monitor (${CONFIG.profile} profile, read from market_monitor.py). ` +
+    `This page only displays; alerts are sent by the scheduled task.`;
+  const how = document.getElementById("how");
+  how.append(h("strong", null, "How the alarms work"), h("ul", null,
+    h("li", null, `The monitor checks hourly on 1h candles and sends at most one alert per asset every ${CONFIG.cooldownH} hours.`),
+    h("li", null, `Move alarms fire at ${T.move1h}% in 1h or ${T.move4h}% in 4h, in either direction. A volume alarm needs ${T.vol_mult}× average volume and a candle ${T.range_atr}× the ATR together.`),
+    h("li", null, `Level alarms fire on the first decisive close beyond the 10-day high or low, the 1h EMA200 or the 61.8% retrace. Entry marks (NEAR only, the one entry the monitor alerts on) repeat at most every ${CONFIG.markCooldownH} hours each. ZEC and BTC entries are reference lines only.`),
+    h("li", null, "Bars on a meter turn amber at half the alarm distance and red at the alarm, always with a word beside the colour."),
+    h("li", null, "An alarm means the data crossed a line. It does not predict price and it is not financial advice.")));
+}
+
+// ---------- theme: Auto follows the OS, Light/Dark override and are remembered ----------
+const THEME_KEY = "alarm-watch-theme";
+function applyTheme(mode) {
+  const m = mode === "light" || mode === "dark" ? mode : "auto";
+  if (m === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = m;
+  document.querySelectorAll("#theme button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.m === m)));
+}
+let savedTheme = "auto";
+try { savedTheme = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* storage blocked: stay on Auto */ }
+applyTheme(savedTheme);
+document.getElementById("theme").addEventListener("click", ev => {
+  const b = ev.target.closest("button");
+  if (!b) return;
+  applyTheme(b.dataset.m);
+  try { localStorage.setItem(THEME_KEY, b.dataset.m); } catch (e) { /* not remembered */ }
+});
+
+document.getElementById("refresh").addEventListener("click", refresh);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+intro();
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, REFRESH_MS);
+</script>
+</body>
+</html>
